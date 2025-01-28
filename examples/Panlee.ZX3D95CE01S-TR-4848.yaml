@@ -38,9 +38,6 @@ psram:
   speed: 80MHz
   mode: octal
 
-psram:
-  speed: 80MHz
-  mode: octal
 debug:
   update_interval: 30s
 # Enable logging
@@ -198,11 +195,11 @@ sensor:
     temperature:
       name: "Temperature"
       id: air_temperature
-      on_value:
+      #on_value:
     humidity:
       name: "Humidity"
       id: relative_humidity
-      on_value:
+      #on_value:
     heater:
       name: "Heater"
 
