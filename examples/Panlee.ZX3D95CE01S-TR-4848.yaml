@@ -1,0 +1,277 @@
+substitutions:
+  name: "panel"
+  friendly_name: "Panel"
+  device_description: "Panlee ZX3D95CE01S-TR-4848 480*480 Smart Screen"
+  project_name: "Panlee.ZX3D95CE01S-TR-4848"
+  project_version: "1.0.0"
+
+esphome:
+  name: "${name}"
+  friendly_name: "${friendly_name}"
+  project:
+    name: "${project_name}"
+    version: "${project_version}"
+  min_version: 2024.11.0
+  name_add_mac_suffix: false
+  platformio_options:
+    board_build.flash_mode: dio
+    board_build.arduino.memory_type: qio_opi
+    build_flags: "-DBOARD_HAS_PSRAM"
+    board_upload.maximum_ram_size: 524288
+
+external_components:
+  - source:
+      type: local
+      path: components
+    components: [ gc9503v ]
+esp32:
+  board: esp32-s3-devkitc-1
+  flash_size: 16MB
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240: y
+      CONFIG_ESP32S3_DATA_CACHE_64KB: y
+      CONFIG_SPIRAM_FETCH_INSTRUCTIONS: y
+      CONFIG_SPIRAM_RODATA: y
+psram:
+  speed: 80MHz
+  mode: octal
+
+psram:
+  speed: 80MHz
+  mode: octal
+debug:
+  update_interval: 30s
+# Enable logging
+logger:
+  level: DEBUG
+  hardware_uart: UART0
+# Enable Home Assistant API
+api:
+
+ota:
+- platform: esphome
+mdns:
+  disabled: false
+  
+wifi:
+  power_save_mode: none
+  networks:
+    - ssid: !secret wifi_ssid
+      password: !secret wifi_password
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Panel Fallback Hotspot"
+    password: "Panelabc"
+
+captive_portal:
+
+# --------------------------------------
+# -            HARDWARE                -
+# --------------------------------------
+
+i2c:
+  sda: 15
+  scl: 6
+  scan: true
+  frequency: 400kHz
+
+spi:    #required only for libraries
+
+# --------------------------------------
+# -            DISPLAY                 -
+# --------------------------------------
+
+display:
+  - platform: gc9503v
+    #update_interval: 1s
+    #show_test_card: true
+    update_interval: never
+    auto_clear_enabled: false
+    #show_test_card: true
+    id: my_display
+    color_order: RGB
+    dimensions:
+      width: 480
+      height: 480  
+    de_pin:
+      number: 40
+      inverted: false
+    hsync_pin:
+      number: 42
+      inverted: false
+    vsync_pin:
+      number: 41
+      inverted: false
+      allow_other_uses: true
+    pclk_pin: 39
+    pclk_inverted: true
+    hsync_pulse_width: 10
+    hsync_front_porch: 8
+    hsync_back_porch: 40
+    vsync_pulse_width: 10
+    vsync_front_porch: 8
+    vsync_back_porch: 40
+    data_pins:
+      red:
+        - 18         # R1
+        - 8          # R2
+        - 3          # R3
+        - 46         # R4
+        - 10         # R5
+      green:
+        - 14         # G0
+        - 13         # G1
+        - 12         # G2
+        - 11         # G3
+        - 16         # G4
+        - 17         # G5 
+      blue:
+        - number: 45 # B1
+          allow_other_uses: true
+        - number: 48 # B2
+          allow_other_uses: true
+        - 47         # B3
+        - 0          # B4
+        - 21         # B5
+    enable_pin:
+      number: 38
+      inverted: false
+    reset_pin:
+      number: 41
+      inverted: false
+      allow_other_uses: true
+    sclk_pin:
+      number: 45
+      allow_other_uses: true
+    mosi_pin:
+      number: 48
+      allow_other_uses: true
+
+touchscreen:
+  - platform: ft63x6
+    interrupt_pin: 4
+    id: my_touchscreen
+    calibration:
+      x_min: 0
+      x_max: 480
+      y_min: 0
+      y_max: 480
+    on_touch:
+      - logger.log:
+          format: Touch at (%d, %d) [%d, %d]
+          args: [touch.x, touch.y, touch.x_raw, touch.y_raw]
+    on_release:
+      - light.turn_on:
+          id: backlight
+          brightness: 100%
+
+# --------------------------------------
+# -            SENSORS                 -
+# --------------------------------------
+sensor:
+  - platform: uptime
+    name: "Uptime Sensor"
+    id: uptime_sensor
+    type:
+      timestamp
+    entity_category: "diagnostic"
+
+  - platform: wifi_signal # Reports the WiFi signal strength/RSSI in dB
+    name: "WiFi Signal dB"
+    id: wifi_signal_db
+    update_interval: 60s
+    entity_category: "diagnostic"
+
+  - platform: copy # Reports the WiFi signal strength in %
+    source_id: wifi_signal_db
+    name: "WiFi Signal Percent"
+    filters:
+      - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
+    unit_of_measurement: "Signal %"
+    entity_category: "diagnostic"
+    device_class: ""
+
+  - platform: htu21d
+    model: sht21
+    temperature:
+      name: "Temperature"
+      id: air_temperature
+      on_value:
+    humidity:
+      name: "Humidity"
+      id: relative_humidity
+      on_value:
+    heater:
+      name: "Heater"
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+      entity_category: "diagnostic"
+    ssid:
+      name: "Connected SSID"
+      entity_category: "diagnostic"
+    mac_address:
+      name: "Mac Address"
+      entity_category: "diagnostic"
+
+  #  Creates a sensor showing when the device was last restarted
+  - platform: template
+    name: 'Last Restart'
+    id: device_last_restart
+    icon: mdi:clock
+    entity_category: "diagnostic"
+#    device_class: timestamp
+
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+  - platform: sntp
+    id: sntp_time
+  # Define the timezone of the device
+    timezone: ""
+  # Change sync interval from default 5min to 6 hours (or as set in substitutions)
+    update_interval: 6h
+  # Set specific sntp servers to use
+    servers:
+      - "0.pool.ntp.org"
+      - "1.pool.ntp.org"
+      - "2.pool.ntp.org"
+  # Publish the time the device was last restarted
+    on_time_sync:
+      then:
+        # Update last restart time, but only once.
+        - if:
+            condition:
+              lambda: 'return id(device_last_restart).state == "";'
+            then:
+              - text_sensor.template.publish:
+                  id: device_last_restart
+                  state: !lambda 'return id(sntp_time).now().strftime("%a %d %b %Y - %I:%M:%S %p");'
+
+output:
+  - platform: ledc
+    pin: 5
+    id: backlight_led
+    frequency: 5kHz
+
+light:
+  - platform: monochromatic
+    output: backlight_led
+    name: Backlight
+    id: backlight
+    restore_mode: ALWAYS_ON
+    default_transition_length: 200ms
+
+# --------------------------------------
+# -            GUI                     -
+# --------------------------------------
+
+lvgl:
+  displays:
+    - my_display
+  touchscreens:
+    - my_touchscreen
