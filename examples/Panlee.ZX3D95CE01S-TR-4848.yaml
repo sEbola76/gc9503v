@@ -20,10 +20,8 @@ esphome:
     board_upload.maximum_ram_size: 524288
 
 external_components:
-  - source:
-      type: local
-      path: components
-    components: [ gc9503v ]
+  - source: github://sEbola76/gc9503v
+
 esp32:
   board: esp32-s3-devkitc-1
   flash_size: 16MB
