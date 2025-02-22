@@ -1,0 +1,253 @@
+substitutions:
+  name: "panel"
+  friendly_name: "Panel"
+  device_description: "Viewesmart UEDX48480021-MD80ESP32 2.1 inch-Knob"
+  project_name: "Viewesmart.UEDX48480021-MD80ESP32_2_1inch-Knob"
+  project_version: "1.0.0"
+
+esphome:
+  name: "${name}"
+  friendly_name: "${friendly_name}"
+  project:
+    name: "${project_name}"
+    version: "${project_version}"
+  min_version: 2024.11.0
+  name_add_mac_suffix: false
+  platformio_options:
+    board_build.flash_mode: dio
+    board_build.arduino.memory_type: qio_opi
+    build_flags: "-DBOARD_HAS_PSRAM"
+    board_upload.maximum_ram_size: 524288
+
+external_components:
+  - source: github://sEbola76/gc9503v
+
+esp32:
+  board: esp32-s3-devkitc-1
+  flash_size: 16MB
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240: y
+      CONFIG_ESP32S3_DATA_CACHE_64KB: y
+      CONFIG_SPIRAM_FETCH_INSTRUCTIONS: y
+      CONFIG_SPIRAM_RODATA: y
+psram:
+  speed: 80MHz
+  mode: octal
+
+debug:
+  update_interval: 30s
+# Enable logging
+logger:
+  level: DEBUG
+  hardware_uart: UART0
+# Enable Home Assistant API
+api:
+
+ota:
+- platform: esphome
+mdns:
+  disabled: false
+  
+wifi:
+  power_save_mode: none
+  networks:
+    - ssid: !secret wifi_ssid
+      password: !secret wifi_password
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Panel Fallback Hotspot"
+    password: "Panelabc"
+
+captive_portal:
+
+# --------------------------------------
+# -            HARDWARE                -
+# --------------------------------------
+
+spi:    #required only for libraries
+
+
+# --------------------------------------
+# -            DISPLAY                 -
+# --------------------------------------
+
+display:
+  - platform: gc9503cv
+    #update_interval: 1s
+    #show_test_card: true
+    update_interval: never
+    auto_clear_enabled: false
+    #show_test_card: true
+    id: my_display
+    color_order: RGB
+    dimensions:
+      width: 480
+      height: 480  
+    de_pin:
+      number: 17
+      inverted: false
+    hsync_pin:
+      number: 46
+      inverted: false
+    vsync_pin:
+      number: 3
+      inverted: false
+    pclk_pin: 9
+    pclk_inverted: false
+    hsync_pulse_width: 8
+    hsync_front_porch: 40
+    hsync_back_porch: 20
+    vsync_pulse_width: 8
+    vsync_front_porch: 50
+    vsync_back_porch: 20
+    data_pins:
+      red:
+        - 40         # R1
+        - 41         # R2
+        - 42         # R3
+        - 2          # R4
+        - 1          # R5
+      green:
+        - 21         # G0
+        - 47         # G1
+        - 48         # G2
+        - 45         # G3
+        - 38         # G4
+        - 39         # G5 
+      blue:
+        - 10 # B1
+        - 11 # B2
+        - number: 12         # B3
+          allow_other_uses: true
+        - number: 13         # B4
+          allow_other_uses: true
+        - 14         # B5
+    enable_pin:
+      number: 18
+      inverted: false
+    reset_pin:
+      number: 8
+      inverted: false
+    sclk_pin:
+      number: 13
+      allow_other_uses: true
+    mosi_pin:
+      number: 12
+      allow_other_uses: true
+
+
+# --------------------------------------
+# -            SENSORS                 -
+# --------------------------------------
+sensor:
+  - platform: uptime
+    name: "Uptime Sensor"
+    id: uptime_sensor
+    type:
+      timestamp
+    entity_category: "diagnostic"
+
+  - platform: wifi_signal # Reports the WiFi signal strength/RSSI in dB
+    name: "WiFi Signal dB"
+    id: wifi_signal_db
+    update_interval: 60s
+    entity_category: "diagnostic"
+
+  - platform: copy # Reports the WiFi signal strength in %
+    source_id: wifi_signal_db
+    name: "WiFi Signal Percent"
+    filters:
+      - lambda: return min(max(2 * (x + 100.0), 0.0), 100.0);
+    unit_of_measurement: "Signal %"
+    entity_category: "diagnostic"
+    device_class: ""
+  - platform: rotary_encoder
+    id: my_rotary_encoder
+    name: "Rotary Encoder"
+    pin_a: 6
+    pin_b: 5
+
+
+text_sensor:
+  - platform: wifi_info
+    ip_address:
+      name: "IP Address"
+      entity_category: "diagnostic"
+    ssid:
+      name: "Connected SSID"
+      entity_category: "diagnostic"
+    mac_address:
+      name: "Mac Address"
+      entity_category: "diagnostic"
+
+  #  Creates a sensor showing when the device was last restarted
+  - platform: template
+    name: 'Last Restart'
+    id: device_last_restart
+    icon: mdi:clock
+    entity_category: "diagnostic"
+#    device_class: timestamp
+
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+  - platform: sntp
+    id: sntp_time
+  # Define the timezone of the device
+    timezone: ""
+  # Change sync interval from default 5min to 6 hours (or as set in substitutions)
+    update_interval: 6h
+  # Set specific sntp servers to use
+    servers:
+      - "0.pool.ntp.org"
+      - "1.pool.ntp.org"
+      - "2.pool.ntp.org"
+  # Publish the time the device was last restarted
+    on_time_sync:
+      then:
+        # Update last restart time, but only once.
+        - if:
+            condition:
+              lambda: 'return id(device_last_restart).state == "";'
+            then:
+              - text_sensor.template.publish:
+                  id: device_last_restart
+                  state: !lambda 'return id(sntp_time).now().strftime("%a %d %b %Y - %I:%M:%S %p");'
+binary_sensor:
+  - platform: gpio
+    pin:
+      inverted: false
+      number: 0
+      ignore_strapping_warning: true
+      mode: 
+        input: True   
+        pullup: false      
+    internal: True
+    id: my_swkey
+
+output:
+  - platform: ledc
+    pin: 7
+    id: backlight_led
+    frequency: 5kHz
+
+light:
+  - platform: monochromatic
+    output: backlight_led
+    name: Backlight
+    id: backlight
+    restore_mode: ALWAYS_ON
+    default_transition_length: 200ms
+
+# --------------------------------------
+# -            GUI                     -
+# --------------------------------------
+
+lvgl:
+  displays:
+    - my_display
+  encoders:
+    - sensor: my_rotary_encoder
+      enter_button: my_swkey

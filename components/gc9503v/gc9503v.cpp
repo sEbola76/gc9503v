@@ -228,7 +228,8 @@ void GC9503V::reset_display_() const {
 void GC9503V::rgb_driver_init()
 {
 	__spi_send_cmd (0xF0); __spi_send_data (0x55); __spi_send_data (0xAA); __spi_send_data (0x52); __spi_send_data (0x08); __spi_send_data (0x00);
-	__spi_send_cmd (0xF6); __spi_send_data (0x5A); __spi_send_data (0x87); __spi_send_cmd (0xC1); __spi_send_data (0x3F);
+	__spi_send_cmd (0xF6); __spi_send_data (0x5A); __spi_send_data (0x87); 
+	__spi_send_cmd (0xC1); __spi_send_data (0x3F);
 	__spi_send_cmd (0xC2); __spi_send_data (0x0E);
 	__spi_send_cmd (0xC6); __spi_send_data (0xF8);
 	__spi_send_cmd (0xC9); __spi_send_data (0x10);
