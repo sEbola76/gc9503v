@@ -33,10 +33,9 @@ void GC9503V::setup() {
 	devcfg.spics_io_num = this->enable_pin_->get_pin();	//CS pin
 	devcfg.queue_size = 7;                         		//We want to be able to queue 7 transactions at a time
 
-
 	ESP_ERROR_CHECK(spi_bus_add_device(SPI2_HOST, &devcfg, &g_screen_spi));
 	esph_log_config(TAG, "rgb_driver_init");
-	rgb_driver_init();
+	this->rgb_driver_init(this->init_sequence_);
 
 	spi_bus_remove_device(g_screen_spi);
 	spi_bus_free(SPI2_HOST);
@@ -93,6 +92,13 @@ void GC9503V::setup() {
 	esph_log_config(TAG, "GC9503V setup complete");
 }
 
+void GC9503V::send_command_and_data(uint8_t command_byte, const uint8_t *data_bytes, uint8_t num_data_bytes) {
+	this->__spi_send_cmd(command_byte);  // Send the command byte
+	for (size_t offset = 0; offset < num_data_bytes; offset++) {
+		this->__spi_send_data(*(data_bytes + offset));
+	}
+}
+
 void GC9503V::__spi_send_cmd(uint8_t cmd)
 {
     uint16_t tmp_cmd = (cmd | 0x0000);;
@@ -139,7 +145,7 @@ void GC9503V::draw_pixels_at(int x_start, int y_start, int w, int h, const uint8
 	x_start += this->offset_x_;
 	y_start += this->offset_y_;
 	esp_err_t err = ESP_OK;
-  // x_ and y_offset are offsets into the source buffer, unrelated to our own offsets into the display.
+    // x_ and y_offset are offsets into the source buffer, unrelated to our own offsets into the display.
 	if (x_offset == 0 && x_pad == 0 && y_offset == 0) {
     	// we could deal here with a non-zero y_offset, but if x_offset is zero, y_offset probably will be so don't bother
 		err = esp_lcd_panel_draw_bitmap(this->handle_, x_start, y_start, x_start + w, y_start + h, ptr);
@@ -175,7 +181,6 @@ int GC9503V::get_height() {
 			return this->get_height_internal();
 	}
 }
-
 
 void GC9503V::draw_pixel_at(int x, int y, Color color) {
 	if (!this->get_clipping().inside(x, y))
@@ -225,165 +230,24 @@ void GC9503V::reset_display_() const {
 	}
 }
 
-void GC9503V::rgb_driver_init()
-{
-	__spi_send_cmd (0xF0); __spi_send_data (0x55); __spi_send_data (0xAA); __spi_send_data (0x52); __spi_send_data (0x08); __spi_send_data (0x00);
-	__spi_send_cmd (0xF6); __spi_send_data (0x5A); __spi_send_data (0x87); __spi_send_cmd (0xC1); __spi_send_data (0x3F);
-	__spi_send_cmd (0xC2); __spi_send_data (0x0E);
-	__spi_send_cmd (0xC6); __spi_send_data (0xF8);
-	__spi_send_cmd (0xC9); __spi_send_data (0x10);
-	__spi_send_cmd (0xCD); __spi_send_data (0x25);
-	__spi_send_cmd (0xF8); __spi_send_data (0x8A);
-	__spi_send_cmd (0xAC); __spi_send_data (0x45);
-	__spi_send_cmd (0xA0); __spi_send_data (0xDD);
-	__spi_send_cmd (0xA7); __spi_send_data (0x47);
-	__spi_send_cmd (0xFA); __spi_send_data (0x00); __spi_send_data (0x00); __spi_send_data (0x00); __spi_send_data (0x04);
-	__spi_send_cmd (0x86); __spi_send_data (0x99); __spi_send_data (0xa3); __spi_send_data (0xa3); __spi_send_data (0x51);
-	__spi_send_cmd (0xA3); __spi_send_data (0xEE);
-	__spi_send_cmd (0xFD); __spi_send_data (0x3c); __spi_send_data (0x3c); __spi_send_data (0x00);
-	__spi_send_cmd (0x71); __spi_send_data (0x48);
-	__spi_send_cmd (0x72); __spi_send_data (0x48);
-	__spi_send_cmd (0x73); __spi_send_data (0x00); __spi_send_data (0x44);
-	__spi_send_cmd (0x97); __spi_send_data (0xEE);
-	__spi_send_cmd (0x83); __spi_send_data (0x93);
-	__spi_send_cmd (0x9A); __spi_send_data (0x72);
-	__spi_send_cmd (0x9B); __spi_send_data (0x5a);
-	__spi_send_cmd (0x82); __spi_send_data (0x2c); __spi_send_data (0x2c);
-	__spi_send_cmd (0xB1); __spi_send_data (0x10);
-	
-	__spi_send_cmd (0x6D); __spi_send_data (0x00); __spi_send_data (0x1F); __spi_send_data (0x19); __spi_send_data (0x1A);
-		__spi_send_data (0x10); __spi_send_data (0x0e); __spi_send_data (0x0c); __spi_send_data (0x0a);
-		__spi_send_data (0x02); __spi_send_data (0x07); __spi_send_data (0x1E); __spi_send_data (0x1E);
-		__spi_send_data (0x1E); __spi_send_data (0x1E); __spi_send_data (0x1E); __spi_send_data (0x1E);
-		__spi_send_data (0x1E); __spi_send_data (0x1E); __spi_send_data (0x1E); __spi_send_data (0x1E);
-		__spi_send_data (0x1E); __spi_send_data (0x1E); __spi_send_data (0x08); __spi_send_data (0x01);
-		__spi_send_data (0x09); __spi_send_data (0x0b); __spi_send_data (0x0D); __spi_send_data (0x0F);
-		__spi_send_data (0x1a); __spi_send_data (0x19); __spi_send_data (0x1f); __spi_send_data (0x00);
-	
-	__spi_send_cmd (0x64); __spi_send_data (0x38); __spi_send_data (0x05); __spi_send_data (0x01); __spi_send_data (0xdb);
-		__spi_send_data (0x03); __spi_send_data (0x03); __spi_send_data (0x38); __spi_send_data (0x04);
-		__spi_send_data (0x01); __spi_send_data (0xdc); __spi_send_data (0x03); __spi_send_data (0x03);
-		__spi_send_data (0x7A); __spi_send_data (0x7A);	__spi_send_data (0x7A); __spi_send_data (0x7A);
-	
-	__spi_send_cmd (0x65); __spi_send_data (0x38); __spi_send_data (0x03); __spi_send_data (0x01); __spi_send_data (0xdd);
-		__spi_send_data (0x03); __spi_send_data (0x03); __spi_send_data (0x38); __spi_send_data (0x02);
-		__spi_send_data (0x01); __spi_send_data (0xde); __spi_send_data (0x03); __spi_send_data (0x03);
-		__spi_send_data (0x7A); __spi_send_data (0x7A); __spi_send_data (0x7A); __spi_send_data (0x7A);
-	
-	__spi_send_cmd (0x66); __spi_send_data (0x38); __spi_send_data (0x01); __spi_send_data (0x01); __spi_send_data (0xdf);
-		__spi_send_data (0x03); __spi_send_data (0x03); __spi_send_data (0x38); __spi_send_data (0x00);
-		__spi_send_data (0x01); __spi_send_data (0xe0); __spi_send_data (0x03); __spi_send_data (0x03);
-		__spi_send_data (0x7A); __spi_send_data (0x7A); __spi_send_data (0x7A); __spi_send_data (0x7A);
-	
-	__spi_send_cmd (0x67); __spi_send_data (0x30); __spi_send_data (0x01); __spi_send_data (0x01); __spi_send_data (0xe1);
-		__spi_send_data (0x03); __spi_send_data (0x03); __spi_send_data (0x30); __spi_send_data (0x02);
-		__spi_send_data (0x01); __spi_send_data (0xe2); __spi_send_data (0x03); __spi_send_data (0x03);
-		__spi_send_data (0x7A); __spi_send_data (0x7A); __spi_send_data (0x7A); __spi_send_data (0x7A);
-	
-	__spi_send_cmd (0x68); __spi_send_data (0x00); __spi_send_data (0x08); __spi_send_data (0x15); __spi_send_data (0x08);
-		__spi_send_data (0x15); __spi_send_data (0x7A); __spi_send_data (0x7A); __spi_send_data (0x08);
-		__spi_send_data (0x15); __spi_send_data (0x08); __spi_send_data (0x15); __spi_send_data (0x7A);
-		__spi_send_data (0x7A);
-	
-	__spi_send_cmd (0x60); __spi_send_data (0x38); __spi_send_data (0x08); __spi_send_data (0x7A); __spi_send_data (0x7A);
-		__spi_send_data (0x38); __spi_send_data (0x09); __spi_send_data (0x7A); __spi_send_data (0x7A);
-	__spi_send_cmd (0x63); __spi_send_data (0x31); __spi_send_data (0xe4); __spi_send_data (0x7A); __spi_send_data (0x7A);
-		__spi_send_data (0x31); __spi_send_data (0xe5); __spi_send_data (0x7A); __spi_send_data (0x7A);
-	__spi_send_cmd (0x69); __spi_send_data (0x04); __spi_send_data (0x22); __spi_send_data (0x14); __spi_send_data (0x22);
-		__spi_send_data (0x14); __spi_send_data (0x22); __spi_send_data (0x08);
-	
-	__spi_send_cmd (0x6B); __spi_send_data (0x07);
-	__spi_send_cmd (0x7A); __spi_send_data (0x08); __spi_send_data (0x13);
-	__spi_send_cmd (0x7B); __spi_send_data (0x08); __spi_send_data (0x13);
-
-	__spi_send_cmd (0xD1); __spi_send_data (0x00); __spi_send_data (0x00); __spi_send_data (0x00); __spi_send_data (0x04);
-		__spi_send_data (0x00); __spi_send_data (0x12); __spi_send_data (0x00); __spi_send_data (0x18);
-		__spi_send_data (0x00); __spi_send_data (0x21); __spi_send_data (0x00); __spi_send_data (0x2a);
-		__spi_send_data (0x00); __spi_send_data (0x35); __spi_send_data (0x00); __spi_send_data (0x47);
-		__spi_send_data (0x00); __spi_send_data (0x56); __spi_send_data (0x00); __spi_send_data (0x90);
-		__spi_send_data (0x00); __spi_send_data (0xe5); __spi_send_data (0x01); __spi_send_data (0x68);
-		__spi_send_data (0x01); __spi_send_data (0xd5); __spi_send_data (0x01); __spi_send_data (0xd7);
-		__spi_send_data (0x02); __spi_send_data (0x36); __spi_send_data (0x02); __spi_send_data (0xa6);
-		__spi_send_data (0x02); __spi_send_data (0xee); __spi_send_data (0x03); __spi_send_data (0x48);
-		__spi_send_data (0x03); __spi_send_data (0xa0); __spi_send_data (0x03); __spi_send_data (0xba);
-		__spi_send_data (0x03); __spi_send_data (0xc5); __spi_send_data (0x03); __spi_send_data (0xd0);
-		__spi_send_data (0x03); __spi_send_data (0xE0); __spi_send_data (0x03); __spi_send_data (0xea);
-		__spi_send_data (0x03); __spi_send_data (0xFa); __spi_send_data (0x03); __spi_send_data (0xFF);
-	__spi_send_cmd (0xD2); __spi_send_data (0x00); __spi_send_data (0x00); __spi_send_data (0x00); __spi_send_data (0x04);
-		__spi_send_data (0x00); __spi_send_data (0x12); __spi_send_data (0x00); __spi_send_data (0x18);
-		__spi_send_data (0x00); __spi_send_data (0x21); __spi_send_data (0x00); __spi_send_data (0x2a);
-		__spi_send_data (0x00); __spi_send_data (0x35); __spi_send_data (0x00); __spi_send_data (0x47);
-		__spi_send_data (0x00); __spi_send_data (0x56); __spi_send_data (0x00); __spi_send_data (0x90);
-		__spi_send_data (0x00); __spi_send_data (0xe5); __spi_send_data (0x01); __spi_send_data (0x68);
-		__spi_send_data (0x01); __spi_send_data (0xd5); __spi_send_data (0x01); __spi_send_data (0xd7);
-		__spi_send_data (0x02); __spi_send_data (0x36); __spi_send_data (0x02); __spi_send_data (0xa6);
-		__spi_send_data (0x02); __spi_send_data (0xee); __spi_send_data (0x03); __spi_send_data (0x48);
-		__spi_send_data (0x03); __spi_send_data (0xa0); __spi_send_data (0x03); __spi_send_data (0xba);
-		__spi_send_data (0x03); __spi_send_data (0xc5); __spi_send_data (0x03); __spi_send_data (0xd0);
-		__spi_send_data (0x03); __spi_send_data (0xE0); __spi_send_data (0x03); __spi_send_data (0xea);
-		__spi_send_data (0x03); __spi_send_data (0xFa); __spi_send_data (0x03); __spi_send_data (0xFF);
-
-	__spi_send_cmd (0xD3); __spi_send_data (0x00); __spi_send_data (0x00); __spi_send_data (0x00); __spi_send_data (0x04);
-		__spi_send_data (0x00); __spi_send_data (0x12); __spi_send_data (0x00); __spi_send_data (0x18);
-		__spi_send_data (0x00); __spi_send_data (0x21); __spi_send_data (0x00); __spi_send_data (0x2a);
-		__spi_send_data (0x00); __spi_send_data (0x35); __spi_send_data (0x00); __spi_send_data (0x47);
-		__spi_send_data (0x00); __spi_send_data (0x56); __spi_send_data (0x00); __spi_send_data (0x90);
-		__spi_send_data (0x00); __spi_send_data (0xe5); __spi_send_data (0x01); __spi_send_data (0x68);
-		__spi_send_data (0x01); __spi_send_data (0xd5); __spi_send_data (0x01); __spi_send_data (0xd7);
-		__spi_send_data (0x02); __spi_send_data (0x36); __spi_send_data (0x02); __spi_send_data (0xa6);
-		__spi_send_data (0x02); __spi_send_data (0xee); __spi_send_data (0x03); __spi_send_data (0x48);
-		__spi_send_data (0x03); __spi_send_data (0xa0); __spi_send_data (0x03); __spi_send_data (0xba);
-		__spi_send_data (0x03); __spi_send_data (0xc5); __spi_send_data (0x03); __spi_send_data (0xd0);
-		__spi_send_data (0x03); __spi_send_data (0xE0); __spi_send_data (0x03); __spi_send_data (0xea);
-		__spi_send_data (0x03); __spi_send_data (0xFa); __spi_send_data (0x03); __spi_send_data (0xFF);
-
-	__spi_send_cmd (0xD4); __spi_send_data (0x00); __spi_send_data (0x00); __spi_send_data (0x00); __spi_send_data (0x04);
-		__spi_send_data (0x00); __spi_send_data (0x12); __spi_send_data (0x00); __spi_send_data (0x18);
-		__spi_send_data (0x00); __spi_send_data (0x21); __spi_send_data (0x00); __spi_send_data (0x2a);
-		__spi_send_data (0x00); __spi_send_data (0x35); __spi_send_data (0x00); __spi_send_data (0x47);
-		__spi_send_data (0x00); __spi_send_data (0x56); __spi_send_data (0x00); __spi_send_data (0x90);
-		__spi_send_data (0x00); __spi_send_data (0xe5); __spi_send_data (0x01); __spi_send_data (0x68);
-		__spi_send_data (0x01); __spi_send_data (0xd5); __spi_send_data (0x01); __spi_send_data (0xd7);
-		__spi_send_data (0x02); __spi_send_data (0x36); __spi_send_data (0x02); __spi_send_data (0xa6);
-		__spi_send_data (0x02); __spi_send_data (0xee); __spi_send_data (0x03); __spi_send_data (0x48);
-		__spi_send_data (0x03); __spi_send_data (0xa0); __spi_send_data (0x03); __spi_send_data (0xba);
-		__spi_send_data (0x03); __spi_send_data (0xc5); __spi_send_data (0x03); __spi_send_data (0xd0);
-		__spi_send_data (0x03); __spi_send_data (0xE0); __spi_send_data (0x03); __spi_send_data (0xea);
-		__spi_send_data (0x03); __spi_send_data (0xFa); __spi_send_data (0x03); __spi_send_data (0xFF);
-
-	__spi_send_cmd (0xD5); __spi_send_data (0x00); __spi_send_data (0x00); __spi_send_data (0x00); __spi_send_data (0x04);
-		__spi_send_data (0x00); __spi_send_data (0x12); __spi_send_data (0x00); __spi_send_data (0x18);
-		__spi_send_data (0x00); __spi_send_data (0x21); __spi_send_data (0x00); __spi_send_data (0x2a);
-		__spi_send_data (0x00); __spi_send_data (0x35); __spi_send_data (0x00); __spi_send_data (0x47);
-		__spi_send_data (0x00); __spi_send_data (0x56); __spi_send_data (0x00); __spi_send_data (0x90);
-		__spi_send_data (0x00); __spi_send_data (0xe5); __spi_send_data (0x01); __spi_send_data (0x68);
-		__spi_send_data (0x01); __spi_send_data (0xd5); __spi_send_data (0x01); __spi_send_data (0xd7);
-		__spi_send_data (0x02); __spi_send_data (0x36); __spi_send_data (0x02); __spi_send_data (0xa6);
-		__spi_send_data (0x02); __spi_send_data (0xee); __spi_send_data (0x03); __spi_send_data (0x48);
-		__spi_send_data (0x03); __spi_send_data (0xa0); __spi_send_data (0x03); __spi_send_data (0xba);
-		__spi_send_data (0x03); __spi_send_data (0xc5); __spi_send_data (0x03); __spi_send_data (0xd0);
-		__spi_send_data (0x03); __spi_send_data (0xE0); __spi_send_data (0x03); __spi_send_data (0xea);
-		__spi_send_data (0x03); __spi_send_data (0xFa); __spi_send_data (0x03); __spi_send_data (0xFF);
-
-	__spi_send_cmd (0xD6); __spi_send_data (0x00); __spi_send_data (0x00); __spi_send_data (0x00); __spi_send_data (0x04);
-		__spi_send_data (0x00); __spi_send_data (0x12); __spi_send_data (0x00); __spi_send_data (0x18);
-		__spi_send_data (0x00); __spi_send_data (0x21); __spi_send_data (0x00); __spi_send_data (0x2a);
-		__spi_send_data (0x00); __spi_send_data (0x35); __spi_send_data (0x00); __spi_send_data (0x47);
-		__spi_send_data (0x00); __spi_send_data (0x56); __spi_send_data (0x00); __spi_send_data (0x90);
-		__spi_send_data (0x00); __spi_send_data (0xe5); __spi_send_data (0x01); __spi_send_data (0x68);
-		__spi_send_data (0x01); __spi_send_data (0xd5); __spi_send_data (0x01); __spi_send_data (0xd7);
-		__spi_send_data (0x02); __spi_send_data (0x36); __spi_send_data (0x02); __spi_send_data (0xa6);
-		__spi_send_data (0x02); __spi_send_data (0xee); __spi_send_data (0x03); __spi_send_data (0x48);
-		__spi_send_data (0x03); __spi_send_data (0xa0); __spi_send_data (0x03); __spi_send_data (0xba);
-		__spi_send_data (0x03); __spi_send_data (0xc5); __spi_send_data (0x03); __spi_send_data (0xd0);
-		__spi_send_data (0x03); __spi_send_data (0xE0); __spi_send_data (0x03); __spi_send_data (0xea);
-		__spi_send_data (0x03); __spi_send_data (0xFa); __spi_send_data (0x03); __spi_send_data (0xFF);
-
-	__spi_send_cmd (0x3a); __spi_send_data (0x66);
-
-	__spi_send_cmd (0x11);
-	delay(120);
-	__spi_send_cmd (0x29);
+void GC9503V::rgb_driver_init(const uint8_t *addr) {
+	if (addr == nullptr)
+		return;
+	uint8_t cmd, x, num_args;
+	while ((cmd = *addr++) != 0) {
+		x = *addr++;
+		if (x == GC9503V_DELAY_FLAG) {
+			cmd &= 0x7F;
+			ESP_LOGV(TAG, "Delay %dms", cmd);
+			delay(cmd);
+		} else {
+			num_args = x & 0x7F;
+			ESP_LOGV(TAG, "Command %02X, length %d, bits %02X", cmd, num_args, *addr);
+			this->send_command_and_data(cmd, addr, num_args);
+			addr += num_args;
+		}
+	}
 }
+
 }
 }

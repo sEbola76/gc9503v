@@ -80,6 +80,7 @@ spi:    #required only for libraries
 
 display:
   - platform: gc9503v
+    model: PANLEE
     #update_interval: 1s
     #show_test_card: true
     update_interval: never

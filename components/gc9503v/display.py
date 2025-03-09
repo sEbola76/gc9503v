@@ -21,6 +21,7 @@ from esphome.const import (
     CONF_IGNORE_STRAPPING_WARNING,
     CONF_INVERT_COLORS,
     CONF_LAMBDA,
+    CONF_MODEL,
     CONF_NUMBER,
     CONF_OFFSET_HEIGHT,
     CONF_OFFSET_WIDTH,
@@ -47,9 +48,16 @@ CONF_PCLK_INVERTED = "pclk_inverted"
 
 DEPENDENCIES = ["esp32"]
 
-
 gc9503v_ns = cg.esphome_ns.namespace("gc9503v")
 GC9503V = gc9503v_ns.class_("GC9503V", display.Display, cg.Component)
+# GC9503V = gc9503v_ns.class_(
+#     "GC9503V",
+#     cg.PollingComponent,
+#     # spi.SPIDevice,
+#     display.Display,
+#     display.DisplayBuffer,
+# )
+
 ColorOrder = display.display_ns.enum("ColorMode")
 
 COLOR_ORDERS = {
@@ -57,6 +65,11 @@ COLOR_ORDERS = {
     "BGR": ColorOrder.COLOR_ORDER_BGR,
 }
 DATA_PIN_SCHEMA = pins.internal_gpio_output_pin_schema
+
+MODELS = {
+    "PANLEE": gc9503v_ns.class_("GC9503VPANLEE", GC9503V),
+    "VIEWE": gc9503v_ns.class_("GC9503VVIEWE", GC9503V),
+}
 
 def data_pin_validate(value):
     """
@@ -81,9 +94,9 @@ def data_pin_set(length):
 
 CONFIG_SCHEMA = cv.All(
     display.FULL_DISPLAY_SCHEMA.extend(
-        cv.Schema(
             {
                 cv.GenerateID(): cv.declare_id(GC9503V),
+                cv.Required(CONF_MODEL): cv.enum(MODELS, upper=True, space="_"),
                 cv.Required(CONF_DIMENSIONS): cv.Any(
                     cv.dimensions,
                     cv.Schema(
@@ -128,15 +141,14 @@ CONFIG_SCHEMA = cv.All(
                 cv.Optional(CONF_VSYNC_BACK_PORCH, default=10): cv.int_,
                 cv.Optional(CONF_VSYNC_FRONT_PORCH, default=10): cv.int_,
             }
-        )
     ),
     only_on_variant(supported=[const.VARIANT_ESP32S3]),
     cv.only_with_esp_idf,
 )
 
-
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+    rhs = MODELS[config[CONF_MODEL]].new()
+    var = cg.Pvariable(config[CONF_ID], rhs)
     await display.register_display(var, config)
 
     cg.add(var.set_color_mode(COLOR_ORDERS[config[CONF_COLOR_ORDER]]))
