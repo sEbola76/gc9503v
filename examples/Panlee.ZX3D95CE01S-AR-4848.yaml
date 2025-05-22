@@ -1,0 +1,205 @@
+substitutions:
+  name: "panel"
+  friendly_name: "panel"
+  device_description: "Panlee ZX3D95CE01S-AR-4848 480*480 Smart Screen"
+  project_name: "Panlee.ZX3D95CE01S-AR-4848"
+  project_version: "1.0.0"
+
+esphome:
+  name: "${name}"
+  friendly_name: "${friendly_name}"
+  project:
+    name: "${project_name}"
+    version: "${project_version}"
+  min_version: 2024.11.0
+  name_add_mac_suffix: false
+  platformio_options:
+    upload_speed: 921600
+    board_build.flash_mode: dio
+    board_build.arduino.memory_type: qio_opi
+    build_flags: "-DBOARD_HAS_PSRAM"
+    board_upload.maximum_ram_size: 524288
+
+esp32:
+  board: esp32-s3-devkitc-1
+  flash_size: 16MB
+  variant: esp32s3
+  framework:
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240: y
+      CONFIG_ESP32S3_DATA_CACHE_64KB: y
+      CONFIG_SPIRAM_FETCH_INSTRUCTIONS: y
+      CONFIG_SPIRAM_RODATA: y
+
+external_components:
+  - source: github://sEbola76/gc9503v
+
+psram:
+  speed: 80MHz
+  mode: octal
+
+# Enable logging
+logger:
+  level: DEBUG
+  hardware_uart: UART0
+  deassert_rts_dtr: true
+
+  baud_rate: 115200
+
+i2c:
+  sda: 7 
+  scl: 6
+  scan: true
+  frequency: 400kHz
+
+spi:    #required only for libraries
+
+
+# --------------------------------------
+# -            DISPLAY                 -
+# --------------------------------------
+
+display:
+  - platform: gc9503v
+    model: PANLEE
+    update_interval: 1s
+    auto_clear_enabled: false
+    id: my_display
+    color_order: RGB
+    dimensions:
+      width: 480
+      height: 480  
+    de_pin:
+      number: 13 #40
+      inverted: false
+    hsync_pin:
+      number: 11 #42
+      inverted: false
+    vsync_pin:
+      number: 12 #41
+      inverted: false
+    pclk_pin: 14 #39
+    pclk_inverted: true
+    hsync_pulse_width: 10
+    hsync_front_porch: 8
+    hsync_back_porch: 40
+    vsync_pulse_width: 10
+    vsync_front_porch: 8
+    vsync_back_porch: 40
+    data_pins:
+      red:
+        - 2              # R1
+        - 17             # R2
+        - 16             # R3
+        - 1              # R4
+        - 15             # R5
+      green:
+        - 41             # G0
+        - 46             # G1
+        - 3              # G2
+        - 42             # G3
+        - 8              # G4
+        - 18             # G5 
+      blue:
+        - number: 10     # B1
+          allow_other_uses: true
+        - number: 9      # B2
+          allow_other_uses: true
+        - 40             # B3
+        - 20             # B4
+        - 19             # B5
+    enable_pin:
+      number: 0 
+      inverted: false
+    reset_pin:
+      number: 44 # fake. This board does not have the display's reset pin connected
+      inverted: false
+    sclk_pin:
+      number: 10 
+      allow_other_uses: true
+    mosi_pin:
+      number: 9 
+      allow_other_uses: true
+
+touchscreen:
+  - platform: ft63x6
+    # interrupt_pin:  . This board does not have the interrupt pin connected. Therefore it will work in polling mode.
+    id: my_touchscreen
+    calibration:
+      x_min: 0
+      x_max: 480
+      y_min: 0
+      y_max: 480
+    on_touch:
+      - logger.log:
+          format: Touch at (%d, %d) [%d, %d]
+          args: [touch.x, touch.y, touch.x_raw, touch.y_raw]
+          level: VERBOSE
+    on_release:
+      - light.turn_on:
+          id: backlight
+          brightness: 100%
+
+output:
+  - platform: ledc
+    pin: 45 
+    id: backlight_led
+    frequency: 5kHz
+
+light:
+  - platform: monochromatic
+    output: backlight_led
+    name: Backlight
+    id: backlight
+    restore_mode: ALWAYS_ON
+    default_transition_length: 200ms
+
+
+lvgl:
+  log_level: VERBOSE
+  widgets:
+    - button:
+        id: light_btn
+        width: 70
+        height: 70
+        x: 50
+        y: 50
+        checkable: true
+        widgets:
+          - label:
+              align: CENTER
+              text: 'TL'
+    - button:
+        id: light_btn2
+        width: 70
+        height: 70
+        x: 360
+        y: 50
+        checkable: true
+        widgets:
+          - label:
+              align: CENTER
+              text: 'TR'
+    - button:
+        id: light_btn3
+        width: 70
+        height: 70
+        x: 50
+        y: 360
+        checkable: true
+        widgets:
+          - label:
+              align: CENTER
+              text: 'BL'
+    - button:
+        id: light_btn4
+        width: 70
+        height: 70
+        x: 360
+        y: 360
+        checkable: true
+        widgets:
+          - label:
+              align: CENTER
+              text: 'BR'
